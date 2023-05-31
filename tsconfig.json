@@ -1,0 +1,34 @@
+{
+  "compilerOptions": {
+
+    /* Projects */
+    "incremental": true,
+    "tsBuildInfoFile": "./build/build-info.tsbuildinfo",
+
+    /* Language and Environment */
+    "target": "es2020",
+
+    /* Modules */
+    "module": "es2022",
+
+    /* JavaScript Support */
+    "allowJs": true,
+
+    /* Emit */
+    "outDir": "./build",
+    "removeComments": true,
+
+    /* Interop Constraints */
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+
+    /* Type Checking */
+    "strict": true,
+
+    /* Completeness */
+    "skipLibCheck": true
+  },
+  "exclude": [
+    "build", "dependencies/shogiground"
+  ]
+}

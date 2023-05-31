@@ -1,0 +1,80 @@
+:root {
+    --board-width: 100vmin;
+    --board-height: 100vmin;
+    --dimensions-x: 8;
+    --dimensions-y: 8;
+    --square-width: calc(var(--board-width) / var(--dimensions-x));
+    --square-height: calc(var(--board-height) / var(--dimensions-y));
+}
+
+.board-container {
+    position: absolute;
+    width: var(--board-width);
+    height: var(--board-height);
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+
+    user-select: none;
+}
+
+.square {
+    width: var(--square-width);
+    height: var(--square-height);
+    float: left;
+    position: relative;
+    box-sizing: border-box;
+}
+.square.light {
+    background-color: rgb(215, 225, 228);
+}
+.square.dark {
+    background-color: rgb(131, 158, 177);
+}
+.square.light.clicked {
+    background-color: rgb(169, 217, 231);
+}
+.square.dark.clicked {
+    background-color: rgb(130, 185, 208);
+}
+
+.square.legal:not(.capture)::after {
+    content: ".";
+    color: rgba(0, 0, 0, 0);
+
+    position: absolute;
+    width: 0px;
+    height: 0px;
+
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+
+    border: calc(var(--square-height) * 0.175) solid rgba(90, 90, 90, 0.2);
+    border-radius: 100%;
+}
+.square.legal.capture::after {
+    content: ".";
+    color: rgba(0, 0, 0, 0);
+
+    position: absolute;
+    width: var(--square-width);
+    height: var(--square-height);
+
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+
+    border: calc(var(--square-height) * 0.175) solid rgba(90, 90, 90, 0.2);
+    border-radius: 100%;
+}
+
+.square img {
+    position: relative;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+
+    width: var(--square-width);
+    height: var(--square-height);
+}
