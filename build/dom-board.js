@@ -10,6 +10,8 @@ export class DOMBoard {
         this.styledLegalSquares = [];
         this.width = config.width;
         this.height = config.height;
+        document.documentElement.style.setProperty("--dimensions-x", this.width.toString());
+        document.documentElement.style.setProperty("--dimensions-y", this.height.toString());
         if (typeof config.container === "string") {
             const node = document.querySelector(config.container);
             if (!node) {
@@ -33,6 +35,7 @@ export class DOMBoard {
     initDragContainer() {
         const dragContainer = document.createElement("div");
         dragContainer.style.position = "absolute";
+        dragContainer.className = "drag-container";
         this.container.appendChild(dragContainer);
         return dragContainer;
     }
@@ -117,12 +120,15 @@ export class DOMBoard {
             const square = this.getSquare(...squareCoord);
             this.styledLegalSquares.push(square);
             square.classList.add("legal");
+            if (square.children.length > 0) {
+                square.classList.add("capture");
+            }
         }
     }
     unstyleLegalSquares() {
         while (this.styledLegalSquares.length > 0) {
             const square = this.styledLegalSquares.pop();
-            square.classList.remove("legal");
+            square.classList.remove("legal", "capture");
         }
     }
     setDraggedPosition(clientX, clientY) {

@@ -15,20 +15,8 @@ function parseFenlike(fenlike: string): string[][] {
         while (!stream.eof()) {
             const char = stream.next();
 
-            // If uppercase, read the symbol
-            if (char === char.toUpperCase()) {
-                let symbol = char;
-
-                // Read while lowercase
-                while (!stream.eof() && stream.peek() !== stream.peek().toUpperCase()) {
-                    symbol += stream.next();
-                }
-
-                currentRow.push(symbol);
-            }
-
-            // Otherwise, it must be a number (we check anyways for errors)
-            else if (/[0-9]/.test(char)) {
+            // If it is a number, skip those squares
+            if (/[0-9]/.test(char)) {
                 let numString = char;
 
                 // Read while number
@@ -38,6 +26,18 @@ function parseFenlike(fenlike: string): string[][] {
 
                 let num = Number.parseInt(numString);
                 currentRow.push(...Array(num).fill(""));
+            }
+
+            // If uppercase, read the symbol
+            else if (char === char.toUpperCase()) {
+                let symbol = char;
+
+                // Read while lowercase
+                while (!stream.eof() && stream.peek() !== stream.peek().toUpperCase()) {
+                    symbol += stream.next();
+                }
+
+                currentRow.push(symbol);
             }
 
             // Throw an error
@@ -57,11 +57,16 @@ function parseFenlike(fenlike: string): string[][] {
     return outputRows;
 }
 
+interface GamePiece {
+    symbol: string;
+    initial: boolean;
+}
+
 export class GameBoard {
     public readonly domBoard: DOMBoard;
     public readonly rules: GameRules;
 
-    public readonly state: string[][];
+    public readonly state: GamePiece[][];
     public readonly width: number;
     public readonly height: number;
 
@@ -74,14 +79,15 @@ export class GameBoard {
         this.width = domBoard.width;
         this.height = domBoard.height;
 
-        this.state = Array(this.height).fill(0).map(() => Array(this.width).fill(""));
+        this.state = Array(this.height).fill(0).map(() => Array(this.width).fill(0).map(() => { return { symbol: "", initial: false } }));
 
         this.domBoard.onDropCallback = this.onDropCallback;
         this.domBoard.onDragCallback = this.onDragCallback;
     }
 
-    set(x: number, y: number, symbol: string) {
-        this.state[y][x] = symbol;
+    set(x: number, y: number, symbol: string, initial?: boolean) {
+        this.state[y][x].symbol = symbol;
+        this.state[y][x].initial = initial ?? false;
         if (symbol !== "") {
             const imageNode = this.rules.getImage(symbol);
             if (imageNode !== null) {
@@ -92,21 +98,31 @@ export class GameBoard {
         }
     }
     get(x: number, y: number): string {
-        return this.state[y][x];
+        return this.state[y][x].symbol;
     }
-
+    getInitial(x: number, y: number): boolean {
+        return this.state[y][x].initial;
+    }
     
     loadStartPosition() {
         let startingRows = parseFenlike(this.rules.startingPosition);
         let startIndex = this.height - startingRows.length;
+
+        if (startingRows[0].length !== this.width) {
+            throw "Invalid starting position: Width does not match.";
+        }
         
         for (let y = 0; y < startingRows.length; y++) {
             for (let x = 0; x < this.width; x++) {
+                if (!startingRows[y][x]) {
+                    continue;
+                }
+
                 // White pieces
-                this.set(x, startIndex + y, "w" + startingRows[y][x]);
+                this.set(x, startIndex + y, "w" + startingRows[y][x], true);
                 
                 // Black pieces
-                this.set(x, y, "b" + startingRows[startingRows.length - y - 1][x]);
+                this.set(x, y, "b" + startingRows[startingRows.length - y - 1][x], true);
             }
         }
     }
@@ -120,7 +136,9 @@ export class GameBoard {
             throw `Piece ${piece} does not have defined rules.`;
         }
 
-        return pieceRules.generateLegalMoves(pieceLocation, [this.width, this.height], this.turn, (pos) => this.get(pos[0], pos[1]));
+        const initial = this.getInitial(...pieceLocation);
+
+        return pieceRules.generateLegalMoves(pieceLocation, [this.width, this.height], initial, this.turn, (pos) => this.get(pos[0], pos[1]));
     }
 
     private onDragCallback = (from: [number, number]): boolean => {
@@ -170,8 +188,9 @@ export class GameBoard {
         return true;
     }
 
-    private setState(x: number, y: number, symbol: string): void {
-        this.state[y][x] = symbol;
+    private setState(x: number, y: number, symbol: string, initial?: boolean): void {
+        this.state[y][x].symbol = symbol;
+        this.state[y][x].initial = initial ?? false;
     }
     // Does not check legality
     private moveUnsafe(from: [number, number], to: [number, number]): void {

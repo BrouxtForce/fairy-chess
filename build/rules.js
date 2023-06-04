@@ -3,9 +3,12 @@ class PieceRules {
     constructor(betza) {
         this.moddedPieceAtoms = PieceRules.parseBetza(betza);
     }
-    generateLegalMoves(pieceLocation, boardSize, turn, getPiece) {
+    generateLegalMoves(pieceLocation, boardSize, initial, turn, getPiece) {
         const allLegalMoves = [];
         for (const moddedPieceAtom of this.moddedPieceAtoms) {
+            if (moddedPieceAtom.modifier.initial && !initial) {
+                continue;
+            }
             const atomMoves = PieceRules.generateModdedPieceAtomMoves(moddedPieceAtom, pieceLocation, boardSize, turn, getPiece);
             allLegalMoves.push(...atomMoves);
         }
@@ -80,35 +83,21 @@ class PieceRules {
     }
     static generateMoveMask(modifier, turn) {
         const mask = Array(7).fill(0).map(() => Array(7).fill(false));
-        if (modifier.forward) {
-            mask[0].fill(true);
-            mask[1].fill(true);
-            mask[2].fill(true);
+        switch (modifier.forward) {
+            case 1: mask[2].fill(true);
+            case 2: mask[1].fill(true);
+            case 3: mask[0].fill(true);
         }
-        else if (modifier.bigForward) {
-            mask[0].fill(true);
-            mask[1].fill(true);
-        }
-        if (modifier.back) {
-            mask[4].fill(true);
-            mask[5].fill(true);
-            mask[6].fill(true);
-        }
-        else if (modifier.bigBack) {
-            mask[5].fill(true);
-            mask[6].fill(true);
+        switch (modifier.back) {
+            case 1: mask[4].fill(true);
+            case 2: mask[5].fill(true);
+            case 3: mask[6].fill(true);
         }
         if (modifier.left) {
-            mask.forEach(array => array.fill(true, 0, 3));
-        }
-        else if (modifier.bigLeft) {
-            mask.forEach(array => array.fill(true, 0, 2));
+            mask.forEach(array => array.fill(true, 0, 4 - (modifier.left ?? 4)));
         }
         if (modifier.right) {
-            mask.forEach(array => array.fill(true, 4));
-        }
-        else if (modifier.bigRight) {
-            mask.forEach(array => array.fill(true, 5));
+            mask.forEach(array => array.fill(true, 3 + (modifier.right ?? 4)));
         }
         if (turn === "b") {
             mask.reverse();
@@ -121,36 +110,24 @@ class PieceRules {
         while (!stream.eof()) {
             switch (stream.next()) {
                 case "f":
-                    if (modifier.forward) {
-                        modifier.bigForward = true;
-                    }
-                    modifier.forward = true;
+                    modifier.forward = (modifier.forward ?? 0) + 1;
                     break;
                 case "b":
-                    if (modifier.back) {
-                        modifier.bigBack = true;
-                    }
-                    modifier.back = true;
+                    modifier.back = (modifier.back ?? 0) + 1;
                     break;
                 case "l":
-                    if (modifier.left) {
-                        modifier.bigLeft = true;
-                    }
-                    modifier.left = true;
+                    modifier.left = (modifier.left ?? 0) + 1;
                     break;
                 case "r":
-                    if (modifier.right) {
-                        modifier.bigRight = true;
-                    }
-                    modifier.right = true;
+                    modifier.right = (modifier.right ?? 0) + 1;
                     break;
                 case "s":
-                    modifier.left = true;
-                    modifier.right = true;
+                    modifier.left = (modifier.left ?? 0) + 1;
+                    modifier.right = (modifier.right ?? 0) + 1;
                     break;
                 case "v":
-                    modifier.forward = true;
-                    modifier.back = true;
+                    modifier.forward = (modifier.forward ?? 0) + 1;
+                    modifier.back = (modifier.back ?? 0) + 1;
                     break;
                 case "c":
                     modifier.mustCapture = true;
@@ -163,12 +140,11 @@ class PieceRules {
                     break;
             }
         }
-        if (!modifier.forward && !modifier.back && !modifier.left && !modifier.right &&
-            !modifier.bigForward && !modifier.bigBack && !modifier.bigLeft && !modifier.bigRight) {
-            modifier.forward = true;
-            modifier.back = true;
-            modifier.left = true;
-            modifier.right = true;
+        if (!modifier.forward && !modifier.back && !modifier.left && !modifier.right) {
+            modifier.forward = 1;
+            modifier.back = 1;
+            modifier.left = 1;
+            modifier.right = 1;
         }
         return modifier;
     }
@@ -188,7 +164,11 @@ class PieceRules {
         }
     }
     static parseBetza(betza) {
-        const stream = new CharacterInputStream(betza.replace(/\+/g, ""));
+        const stream = new CharacterInputStream(betza.replace(/\+/g, "")
+            .replace(/Q/g, "(RB)")
+            .replace(/R/g, "(WW)")
+            .replace(/B/g, "(FF)")
+            .replace(/K/g, "(WF)"));
         const moddedPieceAtoms = [];
         let readCharacters = "";
         while (!stream.eof()) {
@@ -225,6 +205,8 @@ export class GameRules {
         this.boardHeight = config.boardHeight;
         this.startingPosition = config.startingPosition;
         this.imagePath = config.imagePath ?? "";
+        this.onePieceSet = config.onePieceSet ?? false;
+        this.flipImages = config.flipImages ?? false;
     }
     addPiece(symbol, name, betza) {
         let pieceRules;
@@ -250,14 +232,35 @@ export class GameRules {
         if (imageNode === undefined) {
             return null;
         }
-        return imageNode.cloneNode();
+        const clonedImage = imageNode.cloneNode();
+        if (symbol[0] === "b") {
+            clonedImage.classList.add("black");
+        }
+        else {
+            clonedImage.classList.add("white");
+        }
+        return clonedImage;
     }
     loadImage(path, symbol) {
+        if (this.onePieceSet) {
+            const image = new Image();
+            image.src = path.replace("*", symbol);
+            this.pieceImageMap.set("w" + symbol, image);
+            this.pieceImageMap.set("b" + symbol, image);
+            if (!this.flipImages) {
+                image.classList.add("noflip");
+            }
+            return;
+        }
         const wImage = new Image();
         wImage.src = path.replace("*", "w" + symbol);
         this.pieceImageMap.set("w" + symbol, wImage);
         const bImage = new Image();
         bImage.src = path.replace("*", "b" + symbol);
         this.pieceImageMap.set("b" + symbol, bImage);
+        if (!this.flipImages) {
+            wImage.classList.add("noflip");
+            bImage.classList.add("noflip");
+        }
     }
 }

@@ -25,15 +25,10 @@ PieceAtom movement:
 type PieceAtom = "W" | "F" | "D" | "N" | "A" | "H" | "C" | "Z" | "G";
 
 interface PieceAtomModifier {
-    forward?: boolean;
-    back?: boolean;
-    left?: boolean;
-    right?: boolean;
-
-    bigForward?: boolean;
-    bigBack?: boolean;
-    bigLeft?: boolean;
-    bigRight?: boolean;
+    forward?: number;
+    back?: number;
+    left?: number;
+    right?: number;
 
     rider?: boolean;
 
@@ -55,10 +50,14 @@ class PieceRules {
     }
 
     
-    generateLegalMoves(pieceLocation: [number, number], boardSize: [number, number], turn: "w" | "b", getPiece: (pos: [number, number]) => string): [number, number][] {
+    generateLegalMoves(pieceLocation: [number, number], boardSize: [number, number], initial: boolean, turn: "w" | "b", getPiece: (pos: [number, number]) => string): [number, number][] {
         const allLegalMoves: [number, number][] = [];
 
         for (const moddedPieceAtom of this.moddedPieceAtoms) {
+            if (moddedPieceAtom.modifier.initial && !initial) {
+                continue;
+            }
+
             const atomMoves = PieceRules.generateModdedPieceAtomMoves(moddedPieceAtom, pieceLocation, boardSize, turn, getPiece);
 
             allLegalMoves.push(...atomMoves);
@@ -152,37 +151,27 @@ class PieceRules {
         const mask: boolean[][] = Array(7).fill(0).map(() => Array(7).fill(false));
 
         // Forwards
-        if (modifier.forward) {
-            mask[0].fill(true);
-            mask[1].fill(true);
-            mask[2].fill(true);
-        } else if (modifier.bigForward) {
-            mask[0].fill(true);
-            mask[1].fill(true);
+        switch (modifier.forward) {
+            case 1: mask[2].fill(true);
+            case 2: mask[1].fill(true);
+            case 3: mask[0].fill(true);
         }
 
         // Backwards
-        if (modifier.back) {
-            mask[4].fill(true);
-            mask[5].fill(true);
-            mask[6].fill(true);
-        } else if (modifier.bigBack) {
-            mask[5].fill(true);
-            mask[6].fill(true);
+        switch (modifier.back) {
+            case 1: mask[4].fill(true);
+            case 2: mask[5].fill(true);
+            case 3: mask[6].fill(true);
         }
 
         // Left
         if (modifier.left) {
-            mask.forEach(array => array.fill(true, 0, 3));
-        } else if (modifier.bigLeft) {
-            mask.forEach(array => array.fill(true, 0, 2));
+            mask.forEach(array => array.fill(true, 0, 4 - (modifier.left ?? 4)));
         }
 
         // Right
         if (modifier.right) {
-            mask.forEach(array => array.fill(true, 4))
-        } else if (modifier.bigRight) {
-            mask.forEach(array => array.fill(true, 5))
+            mask.forEach(array => array.fill(true, 3 + (modifier.right ?? 4)))
         }
 
         if (turn === "b") {
@@ -199,36 +188,24 @@ class PieceRules {
         while (!stream.eof()) {
             switch (stream.next()) {
                 case "f":
-                    if (modifier.forward) {
-                        modifier.bigForward = true;
-                    }
-                    modifier.forward = true;
+                    modifier.forward = (modifier.forward ?? 0) + 1;
                     break;
                 case "b":
-                    if (modifier.back) {
-                        modifier.bigBack = true;
-                    }
-                    modifier.back = true;
+                    modifier.back = (modifier.back ?? 0) + 1;
                     break;
                 case "l":
-                    if (modifier.left) {
-                        modifier.bigLeft = true;
-                    }
-                    modifier.left = true;
+                    modifier.left = (modifier.left ?? 0) + 1;
                     break;
                 case "r":
-                    if (modifier.right) {
-                        modifier.bigRight = true;
-                    }
-                    modifier.right = true;
+                    modifier.right = (modifier.right ?? 0) + 1;
                     break;
                 case "s":
-                    modifier.left = true;
-                    modifier.right = true;
+                    modifier.left = (modifier.left ?? 0) + 1;
+                    modifier.right = (modifier.right ?? 0) + 1;
                     break;
                 case "v":
-                    modifier.forward = true;
-                    modifier.back = true;
+                    modifier.forward = (modifier.forward ?? 0) + 1;
+                    modifier.back = (modifier.back ?? 0) + 1;
                     break;
                 case "c":
                     modifier.mustCapture = true;
@@ -242,12 +219,11 @@ class PieceRules {
             }
         }
         
-        if (!modifier.forward && !modifier.back && !modifier.left && !modifier.right &&
-        !modifier.bigForward && !modifier.bigBack && !modifier.bigLeft && !modifier.bigRight) {
-            modifier.forward = true;
-            modifier.back = true;
-            modifier.left = true;
-            modifier.right = true;
+        if (!modifier.forward && !modifier.back && !modifier.left && !modifier.right) {
+            modifier.forward = 1;
+            modifier.back = 1;
+            modifier.left = 1;
+            modifier.right = 1;
         }
 
         return modifier;
@@ -269,7 +245,13 @@ class PieceRules {
     }
     // TODO: Implement *, take care of brackets
     private static parseBetza(betza: string): ModdedPieceAtom[] {
-        const stream = new CharacterInputStream(betza.replace(/\+/g, ""));
+        const stream = new CharacterInputStream(
+            betza.replace(/\+/g, "") // Remove '+' signs (holds no actual purpose)
+            .replace(/Q/g, "(RB)") // Queen shorthand
+            .replace(/R/g, "(WW)") // Rook shorthand
+            .replace(/B/g, "(FF)") // Bishop shorthand
+            .replace(/K/g, "(WF)") // King shorthand
+        );
         const moddedPieceAtoms: ModdedPieceAtom[] = [];
 
         let readCharacters = "";
@@ -320,6 +302,12 @@ export interface GameRulesConfig {
 
     // Path to the images to the pieces
     imagePath?: string;
+
+    // If there is only one set of images (as opposed to one set for white and another for black)
+    onePieceSet?: boolean;
+
+    // Flip the images for the other side
+    flipImages?: boolean;
 }
 export class GameRules {
     public readonly pieceRulesMap: Map<string, PieceRules>;
@@ -330,6 +318,8 @@ export class GameRules {
     public readonly startingPosition: string;
 
     private readonly imagePath: string;
+    private readonly onePieceSet: boolean;
+    private readonly flipImages: boolean;
 
     constructor(config: GameRulesConfig) {
         this.pieceRulesMap = new Map();
@@ -341,6 +331,8 @@ export class GameRules {
         this.startingPosition = config.startingPosition;
 
         this.imagePath = config.imagePath ?? "";
+        this.onePieceSet = config.onePieceSet ?? false;
+        this.flipImages = config.flipImages ?? false;
     }
 
     /** `symbol` must start with a capital and be proceded by (0 or more) lowercase letters. */
@@ -372,10 +364,30 @@ export class GameRules {
             return null;
         }
 
-        return imageNode.cloneNode() as HTMLImageElement;
+        const clonedImage = imageNode.cloneNode() as HTMLImageElement;
+        if (symbol[0] === "b") {
+            clonedImage.classList.add("black");
+        } else {
+            clonedImage.classList.add("white");
+        }
+
+        return clonedImage;
     }
 
     private loadImage(path: string, symbol: string): void {
+        if (this.onePieceSet) {
+            const image = new Image();
+            image.src = path.replace("*", symbol);
+
+            this.pieceImageMap.set("w" + symbol, image);
+            this.pieceImageMap.set("b" + symbol, image);
+
+            if (!this.flipImages) {
+                image.classList.add("noflip");
+            }
+            return;
+        }
+
         const wImage = new Image();
         wImage.src = path.replace("*", "w" + symbol);
         this.pieceImageMap.set("w" + symbol, wImage);
@@ -383,5 +395,10 @@ export class GameRules {
         const bImage = new Image();
         bImage.src = path.replace("*", "b" + symbol);
         this.pieceImageMap.set("b" + symbol, bImage);
+
+        if (!this.flipImages) {
+            wImage.classList.add("noflip");
+            bImage.classList.add("noflip");
+        }
     }
 }

@@ -4,7 +4,7 @@ export const ChessRules = new GameRules({
     boardWidth: 8,
     boardHeight: 8,
     startingPosition: "PPPPPPPP/RNBQKBNR",
-    imagePath: "assets/wikipedia/*.png"
+    imagePath: "assets/chess/*.png"
 });
 
 ChessRules.addPieces(

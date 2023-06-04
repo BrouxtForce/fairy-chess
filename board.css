@@ -58,14 +58,14 @@
     color: rgba(0, 0, 0, 0);
 
     position: absolute;
-    width: var(--square-width);
-    height: var(--square-height);
+    width: calc(var(--square-width) * 0.8);
+    height: calc(var(--square-height) * 0.8);
 
     left: 50%;
     top: 50%;
     transform: translate(-50%, -50%);
 
-    border: calc(var(--square-height) * 0.175) solid rgba(90, 90, 90, 0.2);
+    border: calc(var(--square-height) * 0.1) solid rgba(90, 90, 90, 0.2);
     border-radius: 100%;
 }
 
@@ -77,4 +77,10 @@
 
     width: var(--square-width);
     height: var(--square-height);
+}
+.square img.black:not(.noflip) {
+    transform: rotate(180deg) translate(50%, 50%);
+}
+.drag-container img.black:not(.noflip) {
+    transform: rotate(180deg);
 }

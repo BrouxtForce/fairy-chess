@@ -11,9 +11,6 @@
     /* Modules */
     "module": "es2022",
 
-    /* JavaScript Support */
-    "allowJs": true,
-
     /* Emit */
     "outDir": "./build",
     "removeComments": true,
@@ -29,6 +26,6 @@
     "skipLibCheck": true
   },
   "exclude": [
-    "build", "dependencies/shogiground"
+    "build"
   ]
 }
